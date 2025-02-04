@@ -1,65 +1,97 @@
+const CSSValueParser = require("postcss-value-parser");
+
 /**
  * @type {import('postcss').PluginCreator}
  */
 module.exports = (opts = {}) => {
   return {
     postcssPlugin: "postcss-hc-fluid-variables",
-    Root(root) {
-      const { minWidth = 320, maxWidth = 1240, scales = {} } = opts;
 
-      const generatedVars = {};
+    AtRule: {
+      hcfluid: (atRule) => {
+        const { nodes } = CSSValueParser(atRule.params);
+        const params = nodes[0].nodes.filter(
+          (x) =>
+            ["word", "string"].includes(x.type) &&
+            x.value !== "{" &&
+            x.value !== "}"
+        );
 
-      Object.entries(scales).forEach(([prefix, values]) => {
-        Object.keys(values).forEach((key) => {
-          const [min, max] = values[key];
-          const varName = `--${prefix}-${key}`;
-          generatedVars[varName] = generateClamp(min, max, minWidth, maxWidth);
-        });
-      });
+        const config = {
+          minWidth: opts.minWidth || 320,
+          maxWidth: opts.maxWidth || 1240,
+          scales: { ...opts.scales },
+        };
 
-      root.walkDecls((decl) => {
-        const match = decl.value.match(/var\((--[^)]+)-([^),]+)\)/);
-        if (match) {
-          const [, baseVar, targetKey] = match;
-          if (
-            generatedVars[baseVar] &&
-            generatedVars[`--${baseVar.split("--")[1]}-${targetKey}`]
-          ) {
-            const min = parseFloat(
-              generatedVars[baseVar].match(/clamp\(([^px]+)/)[1]
-            );
-            const max = parseFloat(
-              generatedVars[`--${baseVar.split("--")[1]}-${targetKey}`].match(
-                /, ([^px]+)/
-              )[1]
-            );
-            const newVar = `--${baseVar.split("--")[1]}-${targetKey}`;
-            generatedVars[newVar] = generateClamp(min, max, minWidth, maxWidth);
-          }
+        if (!params.length) {
+          atRule.remove();
+          return;
         }
-      });
 
-      root.append({
-        selector: ":root",
-        nodes: Object.entries(generatedVars).map(([key, value]) => ({
-          prop: key,
-          value,
-        })),
-      });
+        let currentKey = "";
+        params.forEach((node) => {
+          if (node.type === "word" && node.value.includes(":")) {
+            const [key, value] = node.value.split(":");
+            if (key === "minWidth" || key === "maxWidth") {
+              config[key] = Number(value);
+            } else {
+              config.scales[key] = {};
+              currentKey = key;
+            }
+          } else if (node.type === "word" && currentKey) {
+            const [step, values] = node.value.split("=");
+            const [min, max] = values.split(",").map(Number);
+            config.scales[currentKey][step] = [min, max];
+          }
+        });
+
+        const generatedVars = {};
+
+        Object.entries(config.scales).forEach(([prefix, values]) => {
+          const keys = Object.keys(values);
+
+          keys.forEach((key) => {
+            const [min, max] = values[key];
+            const varName = `--${prefix}-${key}`;
+            generatedVars[varName] = generateClamp(
+              min,
+              max,
+              config.minWidth,
+              config.maxWidth
+            );
+          });
+
+          for (let i = 0; i < keys.length; i++) {
+            for (let j = i + 1; j < keys.length; j++) {
+              const key1 = keys[i];
+              const key2 = keys[j];
+              const [min1] = values[key1];
+              const [, max2] = values[key2];
+              const pairVarName = `--${prefix}-${key1}-${key2}`;
+              generatedVars[pairVarName] = generateClamp(
+                min1,
+                max2,
+                config.minWidth,
+                config.maxWidth
+              );
+            }
+          }
+        });
+
+        atRule.replaceWith({
+          selector: ":root",
+          nodes: Object.entries(generatedVars).map(([key, value]) => ({
+            prop: key,
+            value,
+          })),
+        });
+      },
     },
   };
 };
 
 module.exports.postcss = true;
 
-/**
- * Generate a CSS clamp function that interpolates between min and max values
- * @param {number} minValue - Minimum value
- * @param {number} maxValue - Maximum value
- * @param {number} minWidth - Minimum viewport width
- * @param {number} maxWidth - Maximum viewport width
- * @returns {string} - clamp() function
- */
 function generateClamp(minValue, maxValue, minWidth, maxWidth) {
   const slope = (maxValue - minValue) / (maxWidth - minWidth);
   const intercept = minValue - slope * minWidth;

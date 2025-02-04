@@ -2,7 +2,12 @@
   "name": "postcss-hc-fluid-variables",
   "version": "0.0.0",
   "description": "PostCSS plugin for generating fluid variables",
-  "keywords": ["postcss", "css", "postcss-plugin", "postcss-hc-fluid-variables"],
+  "keywords": [
+    "postcss",
+    "css",
+    "postcss-plugin",
+    "postcss-hc-fluid-variables"
+  ],
   "scripts": {
     "unit": "node --test index.test.js",
     "test": "npm run unit && eslint ."
@@ -28,6 +33,11 @@
       "node": true,
       "es6": true
     },
-    "extends": ["eslint:recommended"]
+    "extends": [
+      "eslint:recommended"
+    ]
+  },
+  "dependencies": {
+    "postcss-value-parser": "^4.2.0"
   }
 }
