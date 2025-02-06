@@ -1,5 +1,4 @@
 const CSSValueParser = require("postcss-value-parser");
-// const { calculateSpaceScale, calculateTypeScale } = require("utopia-core");
 
 /**
  * @type {import('postcss').PluginCreator}
@@ -8,185 +7,72 @@ module.exports = (opts) => {
   const DEFAULTS = {
     minWidth: 320,
     maxWidth: 1240,
-    minFontSize: 16,
-    maxFontSize: 20,
+    generateAllCrossPairs: false,
+    usePx: false,
   };
   const config = Object.assign(DEFAULTS, opts);
 
-  // const typeScale = (atRule, result) => {
-  //   const { nodes } = CSSValueParser(atRule.params);
-  //   const params = nodes[0].nodes.filter(
-  //     (x) =>
-  //       ["word", "string"].includes(x.type) &&
-  //       x.value !== "{" &&
-  //       x.value !== "}"
-  //   );
+  const pxToRem = (px) => `${parseFloat((px / 16).toFixed(4))}rem`;
 
-  //   const typeParams = {
-  //     minWidth: config.minWidth,
-  //     maxWidth: config.maxWidth,
-  //     minFontSize: 16,
-  //     maxFontSize: 16,
-  //     minTypeScale: 1.1,
-  //     maxTypeScale: 1.1,
-  //     positiveSteps: 0,
-  //     negativeSteps: 0,
-  //     relativeTo: "viewport",
-  //     prefix: "step",
-  //   };
-  //   const paramKeys = Object.keys(typeParams);
-
-  //   if (!params.length) {
-  //     atRule.remove();
-  //     return false;
-  //   }
-
-  //   for (let index = 0; index < params.length; index = index + 2) {
-  //     const element = params[index];
-  //     const key = element.value;
-  //     const value = params[index + 1];
-  //     if (!key || value === undefined) continue;
-
-  //     if (paramKeys.includes(key)) {
-  //       typeParams[key] = isNaN(typeParams[key])
-  //         ? value.value
-  //         : Number(value.value);
-  //     }
-  //   }
-
-  //   const typeScale = calculateTypeScale(typeParams);
-  //   const response = `${typeScale
-  //     .map((step) => {
-  //       return `--${typeParams.prefix || "step"}-${step.step}: ${step.clamp};`;
-  //     })
-  //     .join("\n")}`;
-
-  //   typeScale.some((step) => {
-  //     if (step.wcagViolation) {
-  //       atRule.warn(
-  //         result,
-  //         `WCAG SC 1.4.4 violation for viewports ${step.wcagViolation.from}px to ${step.wcagViolation.to}px.`
-  //       );
-  //       return true;
-  //     }
-  //     return false;
-  //   });
-
-  //   atRule.replaceWith(response);
-
-  //   return false;
-  // };
-
-  // const spaceScale = (atRule) => {
-  //   const { nodes } = CSSValueParser(atRule.params);
-  //   const params = nodes[0].nodes.filter(
-  //     (x) =>
-  //       ["word", "string"].includes(x.type) &&
-  //       x.value !== "{" &&
-  //       x.value !== "}"
-  //   );
-
-  //   if (!params.length) {
-  //     atRule.remove();
-  //     return false;
-  //   }
-
-  //   const spaceParams = {
-  //     minWidth: config.minWidth,
-  //     maxWidth: config.maxWidth,
-  //     minSize: 16,
-  //     maxSize: 16,
-  //     positiveSteps: [],
-  //     negativeSteps: [],
-  //     customSizes: [],
-  //     relativeTo: "viewport",
-  //     usePx: false,
-  //     prefix: "space",
-  //   };
-  //   const paramKeys = Object.keys(spaceParams);
-  //   const arrayParams = ["positiveSteps", "negativeSteps", "customSizes"];
-  //   const keyParams = paramKeys.filter((x) => !arrayParams.includes(x));
-
-  //   keyParams.forEach((param) => {
-  //     const index = params.findIndex((x) => x.value === param);
-  //     if (index !== -1 && params[index + 1] !== undefined) {
-  //       if (["minWidth", "maxWidth", "minSize", "maxSize"].includes(param)) {
-  //         spaceParams[param] = Number(params[index + 1].value);
-  //       } else if ("usePx" === param) {
-  //         spaceParams[param] = params[index + 1].value === "true";
-  //       } else {
-  //         spaceParams[param] = params[index + 1].value;
-  //       }
-
-  //       params.splice(index, 2);
-  //     }
-  //   });
-
-  //   const remainingParams = params
-  //     .map((x) => x.value.replace("[", "").replace("]", ""))
-  //     .filter((x) => x !== "");
-  //   let runningKey = "";
-  //   remainingParams.forEach((val) => {
-  //     if (arrayParams.includes(val)) {
-  //       runningKey = val;
-  //     } else {
-  //       spaceParams[runningKey].push(
-  //         runningKey === "customSizes" ? val : Number(val)
-  //       );
-  //     }
-  //   });
-
-  //   const spaceScale = calculateSpaceScale(spaceParams);
-
-  //   const response = `${[
-  //     ...spaceScale.sizes,
-  //     ...spaceScale.oneUpPairs,
-  //     ...spaceScale.customPairs,
-  //   ]
-  //     .map((step) => {
-  //       return `--${spaceParams.prefix || "space"}-${step.label}: ${
-  //         spaceParams.usePx ? step.clampPx : step.clamp
-  //       };`;
-  //     })
-  //     .join("\n")}`;
-
-  //   atRule.replaceWith(response);
-
-  //   return false;
-  // };
-
-  const calculateClamp = ({ minSize, maxSize, minWidth, maxWidth }) => {
-    // Calculate the slope of the linear interpolation
+  const calculateClamp = ({ minSize, maxSize, minWidth, maxWidth, usePx }) => {
     const slope = (maxSize - minSize) / (maxWidth - minWidth);
-    // Calculate the intersection with the y-axis (b in y = mx + b)
     const intersect = -minWidth * slope + minSize;
-
-    return `clamp(${minSize}px, ${
+    // const unit = usePx ? "px" : "rem";
+    return `clamp(${usePx ? minSize + "px" : pxToRem(minSize)}, ${(
       slope * 100
-    }vw + ${intersect}px, ${maxSize}px)`;
+    ).toFixed(4)}vw + ${usePx ? intersect + "px" : pxToRem(intersect)}, ${
+      usePx ? maxSize + "px" : pxToRem(maxSize)
+    })`;
   };
 
-  const generateClamps = ({ pairs, minWidth, maxWidth, prefix, usePx }) => {
-    return pairs.map(({ name, values: [minSize, maxSize] }) => ({
+  const generateClamps = ({
+    pairs,
+    minWidth,
+    maxWidth,
+    prefix,
+    usePx,
+    generateAllCrossPairs,
+  }) => {
+    let clampScales = pairs.map(({ name, values: [minSize, maxSize] }) => ({
       label: name,
-      clamp: calculateClamp({ minSize, maxSize, minWidth, maxWidth }),
-      clampPx: `${minSize}px`, // Fallback for when usePx is true
+      clamp: calculateClamp({ minSize, maxSize, minWidth, maxWidth, usePx }),
+      clampPx: `${minSize}px`,
     }));
+
+    if (generateAllCrossPairs) {
+      let crossPairs = [];
+      for (let i = 0; i < pairs.length; i++) {
+        for (let j = i + 1; j < pairs.length; j++) {
+          const [smaller, larger] = [pairs[i], pairs[j]].sort(
+            (a, b) => a.values[0] - b.values[0]
+          );
+          crossPairs.push({
+            label: `${smaller.name}-${larger.name}`,
+            clamp: calculateClamp({
+              minSize: smaller.values[0],
+              maxSize: larger.values[1],
+              minWidth,
+              maxWidth,
+              usePx,
+            }),
+            clampPx: `${smaller.values[0]}px`,
+          });
+        }
+      }
+      clampScales = [...clampScales, ...crossPairs];
+    }
+
+    return clampScales;
   };
 
   const clamps = (atRule) => {
-    console.log("Starting clamps function with params:", atRule.params);
-
     const { nodes } = CSSValueParser(atRule.params);
-    console.log("Parsed nodes:", nodes);
-
     const params = nodes[0].nodes.filter(
       (x) =>
         ["word", "string"].includes(x.type) &&
         x.value !== "{" &&
         x.value !== "}"
     );
-    console.log("Filtered params:", params);
 
     const clampsParams = {
       minWidth: config.minWidth,
@@ -194,29 +80,22 @@ module.exports = (opts) => {
       pairs: {},
       relativeTo: "viewport",
       prefix: "space",
-      usePx: false,
+      usePx: config.usePx,
+      generateAllCrossPairs: config.generateAllCrossPairs,
     };
 
-    // First pass: handle all basic parameters
     for (let i = 0; i < params.length; i++) {
       const param = params[i];
       const nextParam = params[i + 1];
-
       if (!param || !nextParam) continue;
-
       const key = param.value;
-      let value = nextParam.value;
-
-      // Clean up the value - remove any colons or commas
-      if (typeof value === "string") {
-        value = value.replace(":", "").replace(",", "");
-      }
+      let value = nextParam.value.replace(/[:,]/g, "");
 
       switch (key) {
         case "minWidth":
         case "maxWidth":
           clampsParams[key] = Number(value);
-          i++; // Skip the next param since we used it
+          i++;
           break;
         case "usePx":
           clampsParams.usePx = value === "true";
@@ -230,12 +109,13 @@ module.exports = (opts) => {
           clampsParams.relativeTo = value.replace(/['"]/g, "");
           i++;
           break;
+        case "generateAllCrossPairs":
+          clampsParams.generateAllCrossPairs = value === "true";
+          i++;
+          break;
       }
     }
 
-    console.log("Parameters after first pass:", clampsParams);
-
-    // Second pass: handle pairs
     const pairsStartIndex = params.findIndex((x) => x.value === "pairs");
     if (pairsStartIndex !== -1) {
       let currentName = null;
@@ -244,180 +124,73 @@ module.exports = (opts) => {
       for (let i = pairsStartIndex + 1; i < params.length; i++) {
         const param = params[i];
         const value = param.value.replace("[", "").replace("]", "");
-
-        // Skip empty values and brackets
         if (!value || value === "[" || value === "]") continue;
-
         if (param.type === "string") {
-          // This is a name
           if (currentName && currentValues.length === 2) {
             clampsParams.pairs[currentName] = currentValues;
           }
           currentName = value;
           currentValues = [];
         } else {
-          // This is a number
           const numValue = Number(value);
-          if (!isNaN(numValue)) {
-            currentValues.push(numValue);
-          }
+          if (!isNaN(numValue)) currentValues.push(numValue);
         }
-
-        // If we have a complete pair, add it
         if (currentName && currentValues.length === 2) {
           clampsParams.pairs[currentName] = currentValues;
         }
       }
     }
 
-    console.log("Final params:", clampsParams);
-
-    // Convert the pairs to the format expected by calculateClamps
     const clampPairs = Object.entries(clampsParams.pairs).map(
-      ([name, values]) => ({
-        name,
-        values,
-      })
+      ([name, values]) => ({ name, values })
     );
-
-    console.log("Clamp pairs:", clampPairs);
-
-    const clampScale = generateClamps({
-      ...clampsParams,
-      pairs: clampPairs,
-    });
+    const clampScale = generateClamps({ ...clampsParams, pairs: clampPairs });
 
     const response = `${clampScale
-      .map((step) => {
-        return `--${clampsParams.prefix}-${step.label}: ${
-          clampsParams.usePx ? step.clampPx : step.clamp
-        };`;
-      })
+      .map(
+        (step) =>
+          `--${clampsParams.prefix}-${step.label}: ${
+            clampsParams.usePx ? step.clampPx : step.clamp
+          };`
+      )
       .join("\n")}`;
 
     atRule.replaceWith(response);
-
     return false;
   };
 
-  // const clamps = (atRule) => {
-  //   const { nodes } = CSSValueParser(atRule.params);
-  //   const params = nodes[0].nodes.filter(x => ['word', 'string'].includes(x.type) && x.value !== '{' && x.value !== '}');
-
-  //   if (!params.length) {
-  //     atRule.remove();
-  //     return false;
-  //   }
-
-  //   const clampsParams = {
-  //     minWidth: config.minWidth,
-  //     maxWidth: config.maxWidth,
-  //     pairs: [],
-  //     relativeTo: 'viewport',
-  //     prefix: 'space',
-  //     usePx: false
-  //   };
-  //   const paramKeys = Object.keys(clampsParams);
-  //   const arrayParams = ['pairs'];
-  //   const keyParams = paramKeys.filter(x => !arrayParams.includes(x));
-
-  //   keyParams.forEach(param => {
-  //     const index = params.findIndex(x => x.value === param);
-  //     if (index !== -1 && params[index + 1] !== undefined) {
-  //       if (['minWidth', 'maxWidth'].includes(param)) {
-  //         clampsParams[param] = Number(params[index + 1].value);
-  //       } else if ('usePx' === param) {
-  //         clampsParams[param] = params[index + 1].value === 'true';
-  //       } else {
-  //         clampsParams[param] = params[index + 1].value;
-  //       }
-
-  //       params.splice(index, 2);
-  //     }
-  //   });
-
-  //   const remainingParams = params.map(x => x.value.replaceAll('[', '').replaceAll(']', '')).filter(x => x !== '');
-  //   let runningKey = '';
-  //   remainingParams.forEach(val => {
-  //     if (arrayParams.includes(val)) {
-  //       runningKey = val;
-  //     } else {
-  //       clampsParams[runningKey].push(Number(val));
-  //     }
-  //   });
-
-  //   clampsParams.pairs = clampsParams.pairs.reduce(function (pairs, value, index, array) {
-  //     if (index % 2 === 0)
-  //     pairs.push(array.slice(index, index + 2));
-  //     return pairs;
-  //   }, []);
-
-  //   const clampScale = calculateClamps(clampsParams);
-  //   const response = `${clampScale.map(step => {
-  //     return `--${clampsParams.prefix || 'space'}-${step.label}: ${clampsParams.usePx ? step.clampPx : step.clamp};`
-  //   }).join('\n')}`;
-
-  //   atRule.replaceWith(response);
-
-  //   return false;
-  // }
-
   return {
-    postcssPlugin: "hc-fluid-variables",
-
+    postcssPlugin: "flutopolis",
     AtRule: {
-      utopia: (atRule, { result }) => {
-        // if (atRule.params.startsWith("typeScale(")) {
-        //   return typeScale(atRule, result);
-        // }
-
-        // if (atRule.params.startsWith("spaceScale(")) {
-        //   return spaceScale(atRule);
-        // }
-
+      flutopolis: (atRule) => {
         if (atRule.params.startsWith("clamps(")) {
           return clamps(atRule);
         }
       },
     },
-
     Declaration(decl) {
-      // The faster way to find Declaration node
       const parsedValue = CSSValueParser(decl.value);
-
-      let valueChanged = false;
       parsedValue.walk((node) => {
-        if (node.type !== "function" || node.value !== "utopia.clamp") {
-          return;
-        }
-
+        // if (node.type !== "function" || node.value !== "kurt.clamp") return;
+        if (node.type !== "function") return;
         let [minSize, maxSize, minWidth, maxWidth] = node.nodes
           .filter((x) => x.type === "word")
-          .map((x) => x.value)
-          .map(Number);
-        if (!minWidth) minWidth = config.minWidth;
-        if (!maxWidth) maxWidth = config.maxWidth;
-
-        if (!minSize || !maxSize || !minWidth || !maxWidth) return false;
-
-        // Generate clamp
-        const clamp = calculateClamp({ minSize, maxSize, minWidth, maxWidth });
-
-        // Convert back PostCSS nodes
-        const {
-          nodes: [{ nodes }],
-        } = CSSValueParser(clamp);
-
+          .map((x) => Number(x.value));
+        minWidth = minWidth || config.minWidth;
+        maxWidth = maxWidth || config.maxWidth;
+        if (!minSize || !maxSize) return;
         node.value = "clamp";
-        node.nodes = nodes;
-        valueChanged = true;
-
-        return false;
+        node.nodes = CSSValueParser(
+          calculateClamp({
+            minSize,
+            maxSize,
+            minWidth,
+            maxWidth,
+            usePx: config.usePx,
+          })
+        ).nodes;
       });
-
-      if (valueChanged) {
-        decl.value = CSSValueParser.stringify(parsedValue);
-      }
+      decl.value = CSSValueParser.stringify(parsedValue);
     },
   };
 };

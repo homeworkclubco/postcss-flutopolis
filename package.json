@@ -1,12 +1,13 @@
 {
-  "name": "postcss-hc-fluid-variables",
+  "name": "postcss-flutopolis",
   "version": "0.0.0",
   "description": "PostCSS plugin for generating fluid variables",
   "keywords": [
     "postcss",
     "css",
     "postcss-plugin",
-    "postcss-hc-fluid-variables"
+    "postcss-hc-fluid-variables",
+    "postcss-flutopolis"
   ],
   "scripts": {
     "unit": "node --test index.test.js",
