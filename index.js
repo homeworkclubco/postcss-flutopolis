@@ -163,7 +163,7 @@ module.exports = (opts) => {
     postcssPlugin: "flutopolis",
     AtRule: {
       flutopolis: (atRule) => {
-        if (atRule.params.startsWith("clamps(")) {
+        if (atRule.params.startsWith("generateScale(")) {
           return clamps(atRule);
         }
       },
@@ -174,7 +174,12 @@ module.exports = (opts) => {
 
       parsedValue.walk((node) => {
         // if (node.type !== "function" || node.value !== "kurt.clamp") return;
-        if (node.type !== "function") return;
+        if (
+          node.type !== "function" ||
+          !["generateScale", "kurt.clamp"].includes(node.value)
+        )
+          return;
+
         let [minSize, maxSize, minWidth, maxWidth] = node.nodes
           .filter((x) => x.type === "word")
           .map((x) => Number(x.value));
@@ -195,7 +200,7 @@ module.exports = (opts) => {
         valueChanged = true;
         return false;
       });
-      
+
       if (valueChanged) {
         decl.value = CSSValueParser.stringify(parsedValue);
       }
