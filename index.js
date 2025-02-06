@@ -170,6 +170,8 @@ module.exports = (opts) => {
     },
     Declaration(decl) {
       const parsedValue = CSSValueParser(decl.value);
+      let valueChanged = false;
+
       parsedValue.walk((node) => {
         // if (node.type !== "function" || node.value !== "kurt.clamp") return;
         if (node.type !== "function") return;
@@ -189,8 +191,14 @@ module.exports = (opts) => {
             usePx: config.usePx,
           })
         ).nodes;
+
+        valueChanged = true;
+        return false;
       });
-      decl.value = CSSValueParser.stringify(parsedValue);
+      
+      if (valueChanged) {
+        decl.value = CSSValueParser.stringify(parsedValue);
+      }
     },
   };
 };
